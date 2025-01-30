@@ -13,6 +13,7 @@ from smpclient import SMPClient
 from smpclient.generics import SMPRequest, TEr1, TEr2, TRep
 from smpclient.transport.ble import SMPBLETransport
 from smpclient.transport.serial import SMPSerialTransport
+from smpclient.transport.wirepas import SMPWirepasTransport
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ TSMPClient = TypeVar(
 class TransportDefinition:
     port: str | None
     ble: str | None
+    wirepas: int | None
 
 
 @dataclass(frozen=True)
@@ -56,6 +58,18 @@ def get_custom_smpclient(options: Options, smp_client_cls: Type[TSMPClient]) -> 
             SMPBLETransport(),
             options.transport.ble,
         )
+    elif options.transport.wirepas is not None:
+        logger.info(f"Initializing SMPClient with the SMPWirepasTransport, {options.transport.wirepas=}")
+        if options.mtu is not None:
+            return smp_client_cls(
+                SMPWirepasTransport(mtu=options.mtu),
+                options.transport.wirepas,
+            )
+        else:
+            return smp_client_cls(
+                SMPWirepasTransport(),
+                options.transport.wirepas,
+            )
     else:
         typer.echo(
             f"A transport option is required; "
