@@ -14,9 +14,10 @@ smpmgr = "smpmgr.main:app"
 source = "git-tag"
 
 [tool.poetry.dependencies]
-python = ">=3.10, <3.14"
-smpclient = "^4.4.0"
+python = ">=3.11, <3.14"
+smpclient = { git = "https://github.com/cthings-co/smpclient.git", rev = "11c5531bcd987d17e1edd5a8b225254c201a8164", extras = ["wirepas"] }
 typer = { extras = ["all"], version = "^0.9.0" }
+click = ">=8.0,<8.2"
 readchar = "^4.0.5"
 
 
@@ -47,3 +48,7 @@ exclude = ['.venv', 'build', 'dist']
 
 [tool.pytest.ini_options]
 filterwarnings = ["ignore:The --rsyncdir:DeprecationWarning"]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

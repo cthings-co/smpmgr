@@ -11,6 +11,25 @@ The SMP specification can be found
 
 ## Install
 
+### WMB over Wirepas
+
+The `wmbc` branch uses the CTHINGS `smpclient` fork and requires Python 3.11
+through 3.13, `wsctrl`, and a running Wirepas sink service on D-Bus. Installing
+this branch with `pip install .` installs its `smpmgr` command and fork dependency.
+
+```sh
+smpmgr --wirepas 21 image state-read
+smpmgr --wirepas 21 --timeout 15 upgrade zephyr.signed.bin
+smpmgr --wirepas 21 image state-read
+```
+
+Wirepas defaults to an MTU of 512 bytes. Use the signed, unpadded MCUboot OTA
+binary built for the target board and its signing key. The upload index
+(`--slot`, default 0) selects the MCUboot image, not primary flash slot 0;
+the upload goes to the secondary slot. `upgrade` marks that image for a test
+boot before resetting. Wait for the board to boot and rejoin the mesh before
+reading its state, then check the active image hash and confirmation status.
+
 You can download a portable executable for Windows or Linux from the
 [latest releases page](https://github.com/intercreate/smpmgr/releases/latest).
 

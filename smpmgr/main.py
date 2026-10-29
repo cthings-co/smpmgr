@@ -55,10 +55,10 @@ def options(
         2.0, help="Transport timeout in seconds; how long to wait for requests"
     ),
     mtu: int = typer.Option(
-        4096,
+        None,
         help=(
-            "Maximum transmission unit supported by the SMP server serial transport."
-            "  Ignored for BLE transport since the BLE connection will report MTU."
+            "Transport MTU: defaults to 4096 for serial and 512 for Wirepas."
+            " Ignored for BLE transport since the BLE connection will report MTU."
         ),
     ),
     loglevel: LogLevel = typer.Option(None, help="Debug log level"),
@@ -88,7 +88,7 @@ def options(
 def upgrade(
     ctx: typer.Context,
     file: Annotated[Path, typer.Argument(help="Path to FW image")],
-    slot: Annotated[int, typer.Option(help="The image slot to upload to")] = 0,
+    slot: Annotated[int, typer.Option(help="The image index to upload (0 for the default image)")] = 0,
 ) -> None:
     """Upload a FW image, mark it for next boot, and reset the device."""
 
@@ -115,28 +115,26 @@ def upgrade(
         with open(file, "rb") as f:
             await upload_with_progress_bar(smpclient, f, slot)
 
-        if slot != 0:
-            # mark the new image for testing (swap)
-            image_states_response = await smp_request(
-                smpclient,
-                options,
-                ImageStatesWrite(hash=image_tlv_sha256.value),
-                "Marking uploaded image for test upgrade...",
-            )
-            if error(image_states_response):
-                print(image_states_response)
-                raise typer.Exit(code=1)
-            elif success(image_states_response):
-                pass
-            else:
-                raise Exception("Unreachable")
+        # The upload index selects an image, not its primary/secondary flash slot.
+        # Image 0 also needs its uploaded secondary image marked for a test boot.
+        image_states_response = await smp_request(
+            smpclient,
+            options,
+            ImageStatesWrite(hash=image_tlv_sha256.value, confirm=False),
+            "Marking uploaded image for test upgrade...",
+        )
+        if error(image_states_response):
+            print(image_states_response)
+            raise typer.Exit(code=1)
+        elif not success(image_states_response):
+            raise Exception("Unreachable")
 
         reset_response = await smp_request(smpclient, options, ResetWrite())
         if (error_v1(reset_response) and reset_response.rc != smperr.MGMT_ERR.EOK) or (
             error_v2(reset_response) and reset_response.err.rc != OS_MGMT_RET_RC.OK
         ):
             print(reset_response)
-            typer.Exit(code=1)
+            raise typer.Exit(code=1)
         elif success(reset_response):
             pass
         else:
@@ -144,8 +142,7 @@ def upgrade(
 
         print("Upgrade complete.")
 
-        if slot != 0:
-            print("The device may take a few minutes to complete FW swap.")
+        print("The device may take a few minutes to complete FW swap.")
 
     asyncio.run(f())
 
