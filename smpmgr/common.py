@@ -34,7 +34,7 @@ class TransportDefinition:
 class Options:
     timeout: float
     transport: TransportDefinition
-    mtu: int
+    mtu: int | None
 
 
 def get_custom_smpclient(options: Options, smp_client_cls: Type[TSMPClient]) -> TSMPClient:
@@ -43,15 +43,13 @@ def get_custom_smpclient(options: Options, smp_client_cls: Type[TSMPClient]) -> 
         logger.info(
             f"Initializing SMPClient with the SMPSerialTransport, {options.transport.port=}"
         )
-        if options.mtu is not None:
-            return smp_client_cls(
-                SMPSerialTransport(
-                    max_smp_encoded_frame_size=options.mtu, line_length=options.mtu, line_buffers=1
-                ),
-                options.transport.port,
-            )
-        else:
-            return smp_client_cls(SMPSerialTransport(), options.transport.port)
+        mtu = options.mtu if options.mtu is not None else 4096
+        return smp_client_cls(
+            SMPSerialTransport(
+                max_smp_encoded_frame_size=mtu, line_length=mtu, line_buffers=1
+            ),
+            options.transport.port,
+        )
     elif options.transport.ble is not None:
         logger.info(f"Initializing SMPClient with the SMPBLETransport, {options.transport.ble=}")
         return smp_client_cls(
@@ -60,16 +58,10 @@ def get_custom_smpclient(options: Options, smp_client_cls: Type[TSMPClient]) -> 
         )
     elif options.transport.wirepas is not None:
         logger.info(f"Initializing SMPClient with the SMPWirepasTransport, {options.transport.wirepas=}")
-        if options.mtu is not None:
-            return smp_client_cls(
-                SMPWirepasTransport(mtu=options.mtu),
-                options.transport.wirepas,
-            )
-        else:
-            return smp_client_cls(
-                SMPWirepasTransport(),
-                options.transport.wirepas,
-            )
+        mtu = options.mtu if options.mtu is not None else 512
+        if mtu != 512:
+            raise typer.BadParameter("Wirepas requires an MTU of 512 bytes.", param_hint="--mtu")
+        return smp_client_cls(SMPWirepasTransport(mtu=mtu), options.transport.wirepas)
     else:
         typer.echo(
             f"A transport option is required; "
